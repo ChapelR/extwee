@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require('path');
+const Story = require('./Story.js');
 
 /**
  * @class TweeWriter
@@ -10,45 +11,99 @@ class TweeWriter {
      * @method TweeWriter
      * @constructor
      */
-    constructor (story, outputFile) {
-        this.story = story;
-        this.outputFile = outputFile;
-        this.outputContents = "";
+    constructor (story, file) {
 
-        this.writeFile(this.outputFile);
+        if( !(story instanceof Story) ) {
+          throw new Error("Not a Story object!");
+        }
+
+        this.writeFile(file, story);
     }
 
-    writeFile(file) {
+    writeFile(file, story) {
+
+      // Write StoryTitle first
+      let outputContents = ":: StoryTitle\n" + story.name + "\n\n";
+
+      // Write the StoryData second
+      outputContents += ":: StoryData\n"
+
+      // Borrowed from Underscore
+      // https://github.com/jashkenas/underscore/blob/master/underscore.js#L1319-L1323
+      let isObject = function(obj) {
+        var type = typeof obj;
+        return type === 'function' || type === 'object' && !!obj;
+      };
+
+      // Test if story.metadata is an object or not
+      if(isObject(story.metadata) ) {
+
+        // Write any metadata in pretty format
+        outputContents += " " + JSON.stringify(story.metadata, undefined, 2);
+
+      } else {
+
+        // If, for whatever reason, story.metadata is not an object, throw error.
+        throw new Error("Story Metadata MUST be an object!");
+
+      }
+
+      // Add two newlines
+      outputContents += "\n\n";
+
+      // Are there any passages?
+      if(story.passages.length > 0) {
 
         // Build the contents
-        for(let passage of this.story.passages) {
+        for(let passage in story.passages) {
 
-            // Write the name
-            this.outputContents += ":: " + passage.name;
+          // Write the name
+          outputContents += ":: " + story.passages[passage].name;
 
-            // Test if it has any tags
-            if(passage.tags != "") {
+          // Test if it has any tags
+          if(story.passages[passage].tags.length > 0) {
 
-                // Write the tag string
-                this.outputContents += " [" + passage.tags + "]";
+            outputContents += " [";
 
-            }
+            for(let tag of story.passages[passage].tags) {
 
-            // Test if its metadata is not just an empty object
-            if(Object.keys(passage.metadata).length > 0) {
-
-                // We are decompiling, so there will always be metadata
-                this.outputContents += " " + JSON.stringify(passage.metadata);
+              outputContents += " " + tag;
 
             }
 
-            // Add the text and two newlines
-            this.outputContents += "\n" + passage.text + "\n\n";
+            outputContents += "]";
+
+          }
+
+          // Write out any passage metadata
+          outputContents += JSON.stringify(story.passages[passage].metadata);
+
+          // Add the text and two newlines
+          outputContents += "\n" + story.passages[passage].text + "\n\n";
 
         }
 
-        // Write the entire contents out
-        fs.writeFileSync(file, this.outputContents);
+      } else {
+
+        // Create empty Start passage
+        outputContents += ":: Start\n";
+
+      }
+
+      try {
+
+        // Try to write
+        fs.writeFileSync(file, outputContents);
+
+      } catch(event) {
+
+        // Throw error
+        throw new Error("Error: Cannot write Twee file!");
+
+      }
+
+      // Writing was successful
+      console.info("Created " + fs.realpathSync(file) );
 
     }
 }

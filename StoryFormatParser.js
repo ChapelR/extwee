@@ -1,7 +1,5 @@
-
-const fs = require("fs");
-const path = require('path');
 const StoryFormat = require('./StoryFormat.js');
+const FileReader = require('./FileReader.js');
 /**
  * @class StoryFormatParser
  * @module StoryFormatParser
@@ -12,64 +10,45 @@ class StoryFormatParser {
      * @constructor
      */
     constructor (file) {
-        this.file = file;
-        this.contents = "";
-        this.extentsion = "";
+
         this.storyformat = null;
 
-        this.readFile(this.file);
-        this.parse();
+        this.parse(file);
     }
 
-    readFile(file) {
+    parse(file) {
 
-        // Attempt to find the file
-        if(fs.existsSync(file) ) {
-
-            this.contents = fs.readFileSync(file, 'utf8');
-
-        } else {
-
-            throw new Error("Error: Source file not found!");
-        
-        }
-
-    }
-
-    parse() {
+        let contents = new FileReader(file).contents;
 
         // Harlowe has malformed JSON, so we have to test for it
-        let harlowePosition = this.contents.indexOf('harlowe');
+        let harlowePosition = contents.indexOf('harlowe');
 
         if(harlowePosition != -1) {
             // The 'setup' property is malformed
-            let setupPosition = this.contents.lastIndexOf(',"setup": function');
+            let setupPosition = contents.lastIndexOf(',"setup": function');
+            contents = contents.slice(0, setupPosition) + '}';
 
-            if(setupPosition != -1) {
-
-                this.contents = this.contents.slice(0, setupPosition) + '}';
-
-            }
-            
         }
 
-        let openingCurlyBracketPosition = this.contents.indexOf('{');
-        let closingCurlyBracketPosition = this.contents.lastIndexOf('}');
+        let openingCurlyBracketPosition = contents.indexOf('{');
+        let closingCurlyBracketPosition = contents.lastIndexOf('}');
 
         if(openingCurlyBracketPosition != -1 && closingCurlyBracketPosition != -1) {
 
             // Slice out the JSON
-            this.contents = this.contents.slice(openingCurlyBracketPosition, closingCurlyBracketPosition+1);
-            
+            contents = contents.slice(openingCurlyBracketPosition, closingCurlyBracketPosition+1);
+
         } else {
 
             throw new Error("Unable to find Twine2 JSON chunk!");
 
         }
 
+        let jsonContent = "";
+
         try {
 
-            this.JSON = JSON.parse(this.contents);
+            jsonContent = JSON.parse(contents);
 
         } catch (event) {
 
@@ -77,8 +56,7 @@ class StoryFormatParser {
 
         }
 
-        this.storyformat = new StoryFormat(this.JSON);
-
+        this.storyformat = new StoryFormat(jsonContent);
 
     }
 

@@ -13,7 +13,6 @@ class HTMLParser {
      */
     constructor (content) {
 
-        this.dom = null;
         this.story = null;
 
         this.parse(content);
@@ -24,7 +23,7 @@ class HTMLParser {
         // Send to node-html-parser
         // Enable getting the content of 'script', 'style', and 'pre' elements
         // Get back a DOM
-        this.dom = new htmlparser(
+        let dom = new htmlparser(
                         content,
                         {
                                   lowerCaseTagName: false,
@@ -34,7 +33,7 @@ class HTMLParser {
                         });
 
         // Pull out the tw-storydata element
-        let storyData = this.dom.querySelector('tw-storydata');
+        let storyData = dom.querySelector('tw-storydata');
 
         if(storyData != null) {
 
@@ -57,20 +56,27 @@ class HTMLParser {
         }
 
         // Pull out the tw-passagedata elements
-        let storyPassages = this.dom.querySelectorAll("tw-passagedata");
+        let storyPassages = dom.querySelectorAll("tw-passagedata");
 
         // Create an empty array
         this.story.passages = new Array();
+
+          // Set default pid
+        let pid = 1;
 
         // Add StoryTitle
         this.story.passages.push(
             new Passage(
                 "StoryTitle",
-                "",
+                [],
                 {},
-                this.story.name
+                this.story.name,
+                pid
             )
         );
+
+       // Increase PID by one before parsing any other passages
+       pid++;
 
         // Move through the passages
         for(let passage in storyPassages) {
@@ -80,17 +86,17 @@ class HTMLParser {
             // Get the passage text
             let text = storyPassages[passage].rawText;
 
-            // Split the string into an array
+            // Save position
             let position = attr.position;
 
-            // Split the string into an array
+            // Save size
             let size = attr.size;
 
             // Escape the name
             let name = this._escapeMetacharacters(attr.name);
 
             // Create empty tags
-            let tags = new String();
+            let tags = "";
 
             // Escape any tags
             // (Attributes can, themselves, be emtpy strings.)
@@ -99,6 +105,12 @@ class HTMLParser {
                 tags = this._escapeMetacharacters(attr.tags);
 
             }
+
+            // Split by spaces
+            tags = tags.split(" ");
+
+            // Remove any empty strings
+            tags = tags.filter(tag => tag != "");
 
             // Add a new Passage into an array
             this.story.passages.push(
@@ -110,14 +122,17 @@ class HTMLParser {
                             "size": size
 
                         },
-                        text
+                        text,
+                        pid
                     )
             );
+
+            pid++;
 
         }
 
         // Look for the style element
-        let styleElement = this.dom.querySelector('#twine-user-stylesheet');
+        let styleElement = dom.querySelector('#twine-user-stylesheet');
 
         // Check if there is any content.
         // If not, we won't add empty passages
@@ -127,7 +142,7 @@ class HTMLParser {
             this.story.passages.push(
                 new Passage(
                     "UserStylesheet",
-                    "style",
+                    ["stylesheet"],
                     {},
                     styleElement.rawText
                 )
@@ -135,7 +150,7 @@ class HTMLParser {
         }
 
         // Look for the script element
-        let scriptElement = this.dom.querySelector('#twine-user-script');
+        let scriptElement = dom.querySelector('#twine-user-script');
 
         // Check if there is any content.
         // If not, we won't add empty passages
@@ -145,7 +160,7 @@ class HTMLParser {
             this.story.passages.push(
                 new Passage(
                     "UserScript",
-                    "script",
+                    ["script"],
                     {},
                     scriptElement.rawText
                 )
@@ -154,14 +169,14 @@ class HTMLParser {
         }
 
         // Now that all passages have been handled,
-        //  change the start name from number to string.
+        //  change the start name
         this.story.metadata.start = this.story.getStartingPassage();
 
-        // Add StoryMetadata
+        // Add StoryData
         this.story.passages.push(
             new Passage(
-                "StoryData", 
-                "",
+                "StoryData",
+                [],
                 {},
                 JSON.stringify(this.story.metadata, null, 4)
             )
@@ -169,57 +184,18 @@ class HTMLParser {
 
     }
 
-    _escapeMetacharacters(text) {
+    _escapeMetacharacters(result) {
 
-        let result = text;
-
-        let leftCurly = text.indexOf('\{');
-
-        if(leftCurly != -1) {
-
-            result = result.substring(0, leftCurly) + '\\' + result.substring(leftCurly);
-        }
-
-        let rightCurly = text.indexOf('\}');
-
-        if(rightCurly != -1) {
-
-            result = result.substring(0, rightCurly) + '\\' + result.substring(rightCurly);
-        }
-
-        let leftSquare = text.indexOf('\[');
-
-        if(leftSquare != -1) {
-
-            result = result.substring(0, leftSquare) + '\\' + result.substring(leftSquare);
-        }
-
-        let rightSquare = text.indexOf('\]');
-
-        if(rightSquare != -1) {
-
-            result = result.substring(0, rightSquare) + '\\' + result.substring(rightSquare);
-
-        }
-
-        // To avoid ambiguity, non-escape backslashes must also be escaped
-        // (We need to check that we haven't already escaped metacharacters.)
-        if(leftCurly == -1 &&
-           rightCurly == -1 &&
-           leftSquare == -1 &&
-           rightSquare == -1) {
-
-            let pos = text.indexOf("\\");
-
-            if(pos != -1) {
-
-                // Escape any single backslashes
-                result = result.substring(0, pos-1) + '\\' + result.substring(pos);
-
-            }
-
-        }
-
+        // Replace any single backslash with two of them
+        result = result.replace(/\\/g, "\\");
+        // Double-escape escaped {
+        result = result.replace(/\\\{/g, "\\\\{");
+        // Double-escape escaped }
+        result = result.replace(/\\\}/g, "\\\\}");
+        // Double-escape escaped [
+        result = result.replace(/\\\[/g, "\\\\[");
+        // Double-escape escaped ]
+        result = result.replace(/\\\]/g, "\\\\]");
 
         return result;
 

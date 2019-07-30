@@ -10,13 +10,11 @@ class TweeParser {
      * @constructor
      */
     constructor (content) {
-        this.passages = [];
         this.story = new Story();
-        this.contents = content;
-        this.style = "";
-        this.script = "";
+        this._passageMetadatError = false;
+        this._storydataError = false;
 
-        this.parse(this.contents);
+        this.parse(content);
     }
 
     /**
@@ -24,6 +22,8 @@ class TweeParser {
      * @returns Array or Null on error
      */
     parse(fileContents) {
+
+      let passages = [];
 
     	// Check if there are extra content in the files
     	// If so, cut it all out for the parser
@@ -90,7 +90,7 @@ class TweeParser {
 
 	        	} catch(event) {
 
-	        		console.warn("Unable to parse passage JSON.");
+              this._passageMetadatError = true;
 
 	        	}
 
@@ -113,10 +113,18 @@ class TweeParser {
 
         		// Eat the opening and closing square brackets
         		tags = tags.substring(1, tags.length-1);
-        		let tagsArray = tags.split(" ");
+
+            // Set empty default
+            let tagsArray = [];
+
+            // Test if tags is not single, empty string
+            if( !(tags == "") ) {
+
+                tagsArray = tags.split(" ");
+            }
 
         		// There are multiple tags
-        		if(tagsArray.length > 0) {
+        		if(tagsArray.length > 1) {
 
         			// Create future array
         			let futureTagArray = [];
@@ -132,7 +140,7 @@ class TweeParser {
         			// Set the tags back to the future array
         			tags = futureTagArray;
 
-        		} else {
+        		} else if (tagsArray.length == 1) {
 
         			// There was only one tag
         			// Store it
@@ -142,27 +150,21 @@ class TweeParser {
         			tags = new Array();
         			// Push the single entry
         			tags.push(temp);
-        		}
+
+            } else {
+
+              // Make sure tags is set to empty array if no tags were found
+              tags = [];
+
+            }
 
         	} else {
         		// There were no tags, so set it to an empty array;
         		tags = [];
         	}
 
-
-        	// Test for position information
-	        let openingLessPosition = header.lastIndexOf('<');
-	        let closingGreaterPosition = header.lastIndexOf('>');
-
-	        if(openingLessPosition != -1 && closingGreaterPosition != -1) {
-
-	        	position = header.slice(openingLessPosition, closingGreaterPosition+1);
-
-	        	// Remove the position information from the header
-	        	header = header.substring(0, openingLessPosition) + header.substring(closingGreaterPosition+1);
-	        }
-
-	        //this.story.metadata.position = position[0] + ", " + position[1];
+          // Filter out any empty string tags
+          tags = tags.filter(tag => tag != "");
 
         	// Trim any remaining whitespace
         	header = header.trim();
@@ -179,8 +181,14 @@ class TweeParser {
 
         	}
 
+          if(this._passageMetadatError) {
+
+            console.warn('Error parsing metadata for "' + name + '". It was ignored.');
+
+          }
+
         	// Add the new Passage to the internal array
-        	this.passages.push(new Passage(name, tags, metadata, text, pid));
+        	passages.push(new Passage(name, tags, metadata, text, pid));
 
           // Increase pid
           pid++;
@@ -189,7 +197,7 @@ class TweeParser {
 
         // All formats share StoryTitle
         // Find it and set it
-        let pos = this.passages.find((el) => {
+        let pos = passages.find((el) => {
         	return el.name == "StoryTitle";
         });
 
@@ -197,7 +205,7 @@ class TweeParser {
 
         	this.story.name = pos.text;
             // Remove the StoryTitle passage
-            this.passages = this.passages.filter(p => p.name !== "StoryTitle");
+            passages = passages.filter(p => p.name !== "StoryTitle");
 
         } else {
 
@@ -208,7 +216,7 @@ class TweeParser {
         }
 
         // Look for StoryData
-        pos = this.passages.find((el) => {
+        pos = passages.find((el) => {
         		return el.name == "StoryData";
         });
 
@@ -222,16 +230,23 @@ class TweeParser {
         	} catch(event) {
 
         		// Silently fail with default values
+            this._storydataError = true;
 
         	}
 
             // Remove the StoryData passage
-            this.passages = this.passages.filter(p => p.name !== "StoryData");
+            passages = passages.filter(p => p.name !== "StoryData");
+
+        }
+
+        if(this._storydataError) {
+
+            console.warn("Error with processing StoryData JSON data. It was ignored.");
 
         }
 
         // Set the passages to the internal story
-        this.story.passages = this.passages;
+        this.story.passages = passages;
 
     }
 

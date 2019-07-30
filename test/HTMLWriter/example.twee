@@ -1,23 +1,23 @@
 :: StoryTitle
 twineExample
 
-:: Start {"position":"102,104","size":"100,100"}
+:: Start
 [[Another passage]]
 
 [[A third passage]]
 
-:: Another passage {"position":"353,60","size":"100,100"}
+:: Another passage
 [[A fourth passage]]
 
 [[A third passage]]
 
-:: A third passage {"position":"350,288","size":"100,100"}
+:: A third passage
 [[Start]]
 
-:: A fourth passage {"position":"587,197","size":"100,100"}
+:: A fourth passage
 [[A fifth passage]]
 
-:: A fifth passage {"position":"800,306","size":"100,100"}
+:: A fifth passage
 Double-click this passage to edit it.
 
 :: StoryData
